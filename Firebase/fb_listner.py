@@ -17,7 +17,7 @@ class Listener:
         self.cred = credentials.Certificate('mca_key.json') # Key Certification
 
         firebase_admin.initialize_app(self.cred, {
-            'databaseURL': 'https://mcaproject-9e8c7-default-rtdb.firebaseio.com/'
+            'databaseURL': '"URL".firebaseio.com/'
         })
         
         rospy.spin()
