@@ -24,7 +24,7 @@ pub = rospy.Publisher("test", Int16, queue_size=10)
 cred = credentials.Certificate('mca_key.json') # Key Certification
 
 firebase_admin.initialize_app(cred, {
-    'databaseURL': 'https://mcaproject-9e8c7-default-rtdb.firebaseio.com/'
+    'databaseURL': '".firebaseio.com/'
 })
     
 while not rospy.is_shutdown():
