@@ -1,0 +1,16 @@
+# 로봇 초기 위치
+init_pose_robot:
+  position: [0.0, 0.0, 0.0]
+  orientation: [0.0, 0.0, 0.0, 0.0]
+# 쟁반 테이블
+table_order:
+  position: [0.0, 0.0, 0.0]
+  orientation: [0.0, 0.0, 0.0, 0.0]
+# 1번 테이블
+table_pose_first:
+  position: [0.0, 0.0, 0.0]
+  orientation: [0.0, 0.0, 0.0, 0.0]
+# 쟁반 회수대
+table_return:
+  position: [0.0, 0.0, 0.0]
+  orientation: [0.0, 0.0, 0.0, 0.0]
