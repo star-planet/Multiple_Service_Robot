@@ -8,7 +8,10 @@
 
 #include "set/data.h"
 
-extern mode;
+enum Mode{
+    Serving,
+    Amanity
+}; Mode mode;
 
 enum State{
     STATE_WAIT,
@@ -208,6 +211,14 @@ class Serving{
     }
 
     void fbCallback(const std_msgs::Int16 &fbData){
+        if (fbData.data == 1){
+            mode = Serving;
+        }
+
+        else if (fbData.data == 2){
+            mode = Amanity;
+        }
+        
         if (mode == 0){
             if (fbData.data == 3){
                 pubPoseStamped.publish(poseStampedTable[0]);
