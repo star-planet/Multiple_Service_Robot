@@ -261,7 +261,7 @@ int main(int argc, char** argv) {
     ros::init(argc, argv, "robotService");
     ros::NodeHandle nh;
 
-    ROS_INFO("SYSTEM ON\n");
+    ROS_INFO("SYSTEM ON.\n");
 
     Robot rb;
 
