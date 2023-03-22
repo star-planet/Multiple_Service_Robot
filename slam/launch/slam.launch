@@ -1,0 +1,16 @@
+<launch>
+  <!-- Arguments -->
+  <arg name="open_rviz" default="true"/>
+
+  <!-- launching state publishers -->
+  <include file="$(find bringup)/launch/remote.launch"/>
+
+  <!-- Slam -->
+  <include file="$(find slam)/launch/gmapping.launch"/>
+
+  <!-- rviz -->
+  <group if="$(arg open_rviz)"> 
+    <node pkg="rviz" type="rviz" name="rviz" required="true"
+          args="-d $(find slam)/rviz/gmapping.rviz"/>
+  </group>
+</launch>

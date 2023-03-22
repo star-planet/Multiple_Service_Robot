@@ -1,0 +1,28 @@
+<launch>
+  <!-- Ros master auto-->
+  <master auto="start"/>
+
+  <!-- Arguments -->
+  <arg name="cmd_vel_topic" default="/cmd_vel" />
+  <arg name="odom_topic" default="/odometry/filtered" />
+
+  <!-- move_base -->
+  <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+    <rosparam file="$(find navigation)/param/costmap_common_params.yaml" command="load" ns="global_costmap" />
+    <rosparam file="$(find navigation)/param/costmap_common_params.yaml" command="load" ns="local_costmap" />
+    <rosparam file="$(find navigation)/param/local_costmap_params.yaml" command="load" />
+    <rosparam file="$(find navigation)/param/global_costmap_params.yaml" command="load" />
+    <!--rosparam file="$(find navigation)/param/move_base_params.yaml" command="load" /-->
+
+    <!-- dwa local planner >
+    <rosparam file="$(find navigation)/param/dwa_local_planner_params.yaml" command="load" />
+    <param name="base_local_planner" value="dwa_local_planner/DWAPlannerROS" /-->
+
+    <!-- teb local planner -->
+    <rosparam file="$(find navigation)/param/base_local_planner_params.yaml" command="load" />
+    <param name="base_local_planner" value="teb_local_planner/TebLocalPlannerROS" />
+    <param name="controller_frequency"  value="10"/>
+
+    <remap from="odom" to="$(arg odom_topic)"/>
+  </node>
+</launch>
