@@ -1,4 +1,0 @@
-int32 Moving = 10
-int32 Arrival = 20
-int32 Return = 30
-int32 Wait = 40
