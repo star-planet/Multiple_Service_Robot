@@ -1,30 +1,43 @@
 #!/usr/bin/env python
-#-*- encoding: utf-8 -*-
+# -*- encoding: utf-8 -*-
 
 import rospy
 from enum import Enum
-import time
 
 from std_msgs.msg import String
 from geometry_msgs.msg import PoseStamped
 from actionlib_msgs.msg import GoalStatusArray
 from move_base_msgs.msg import MoveBaseActionResult
 
-class Robot:
+
+class Service:
     def __init__(self):
         self.initParam()
-        
-        self.pubPoseStamped = rospy.Publisher("move_base_simple/goal", PoseStamped, queue_size=1)
-        self.pubUltra = rospy.Publisher("ultra", String, queue_size=1) # 초음파 센서 작동
-        self.pubPlate = rospy.Publisher("plate", String, queue_size=1) # 쟁반 작동
-        self.pubHotel = rospy.Publisher("hotel", String, queue_size=1) # 호실 도착 후 현빈이 한테 보낼 퍼블리셔(메시지: ros)
-        self.pubFirebase = rospy.Publisher("ros_to_firebase", String, queue_size=1)
-        
-        self.sub_arrival_status = rospy.Subscriber("move_base/result", MoveBaseActionResult, callback=self.checkArrival)
-        self.sub_plate_status = rospy.Subscriber("plate", String, callback=self.checkPlate)
-        self.sub_ultra_status = rospy.Subscriber("ultra", String, callback=self.checkUltra)
-        self.sub_firebase = rospy.Subscriber("firebase_to_ros", String, callback=self.firebase)
-        
+
+        self.pubPoseStamped = rospy.Publisher(
+            "move_base_simple/goal", PoseStamped, queue_size=1)
+        self.pubUltra = rospy.Publisher(
+            "ultra", String, queue_size=1)  # 초음파 센서 작동
+        self.pubPlate = rospy.Publisher("plate", String, queue_size=1)  # 쟁반 작동
+        self.pubHotel = rospy.Publisher("hotel", String, queue_size=1)
+        self.pubFirebase = rospy.Publisher(
+            "ros_to_firebase", String, queue_size=1)  # 데이터베이스 송신
+
+        self.sub_arrival_status = rospy.Subscriber(
+            "move_base/result", MoveBaseActionResult, callback=self.checkArrival)
+        self.sub_plate_status = rospy.Subscriber(
+            "plate", String, callback=self.checkPlate)
+        self.sub_ultra_status = rospy.Subscriber(
+            "ultra", String, callback=self.checkUltra)
+        self.sub_firebase = rospy.Subscriber(
+            "firebase_to_ros", String, callback=self.firebase)  # 데이터베이스 수신
+
+        rate = rospy.Rate(5)
+
+        while not rospy.is_shutdown():
+            self.pubPose()
+            rate.sleep()
+
     class HOTEL_FLAG_VALUE(Enum):
         WAIT = "대기"
         MOVING = "이동중"
@@ -32,7 +45,7 @@ class Robot:
         RETURN = "복귀중"
         HOME = "원위치"
     _HOTEL_FLAG_VALUE = HOTEL_FLAG_VALUE
-    
+
     class SERVE_FLAG_VALUE(Enum):
         WAIT = "대기"
         MOVING = "이동중"
@@ -42,22 +55,22 @@ class Robot:
         RETRIEVAL_ARR = "회수 도착"
         HOME = "원위치"
     _SERVE_FLAG_VALUE = SERVE_FLAG_VALUE
-    
+
     def initParam():
         global poseStampedHome, poseStampedTable, poseStampedHotel
-        
+
         poseStampedHome = [PoseStamped()]
         # 서빙 로봇 초기 위치
         target_pose_position = rospy.get_param("serve_home/position")
         target_pose_orientation = rospy.get_param("serve_home/orientation")
-        
+
         poseStampedHome[0].header.frame_id = "map"
         poseStampedHome[0].header.stamp = rospy.Time.now()
-        
+
         poseStampedHome[0].pose.position.x = target_pose_position[0]
         poseStampedHome[0].pose.position.y = target_pose_position[1]
         poseStampedHome[0].pose.position.z = target_pose_position[2]
-        
+
         poseStampedHome[0].pose.orientation.x = target_pose_orientation[0]
         poseStampedHome[0].pose.orientation.y = target_pose_orientation[1]
         poseStampedHome[0].pose.orientation.z = target_pose_orientation[2]
@@ -65,119 +78,188 @@ class Robot:
         # 호텔 로봇 초기 위치
         target_pose_position = rospy.get_param("hotel_home/position")
         target_pose_orientation = rospy.get_param("hotel_home/orientation")
-        
+
         poseStampedHome[1].header.frame_id = "map"
         poseStampedHome[1].header.stamp = rospy.Time.now()
-        
+
         poseStampedHome[1].pose.position.x = target_pose_position[0]
         poseStampedHome[1].pose.position.y = target_pose_position[1]
         poseStampedHome[1].pose.position.z = target_pose_position[2]
-        
+
         poseStampedHome[1].pose.orientation.x = target_pose_orientation[0]
         poseStampedHome[1].pose.orientation.y = target_pose_orientation[1]
         poseStampedHome[1].pose.orientation.z = target_pose_orientation[2]
         poseStampedHome[1].pose.orientation.w = target_pose_orientation[3]
-        
+
         poseStampedTable = [PoseStamped()]
         # 서빙 테이블
         target_pose_position = rospy.get_param("serve_table/position")
         target_pose_orientation = rospy.get_param("serve_table/orientation")
-        
+
         poseStampedTable[0].header.frame_id = "map"
         poseStampedTable[0].header.stamp = rospy.Time.now()
-        
+
         poseStampedTable[0].pose.position.x = target_pose_position[0]
         poseStampedTable[0].pose.position.y = target_pose_position[1]
         poseStampedTable[0].pose.position.z = target_pose_position[2]
-        
+
         poseStampedTable[0].pose.orientation.x = target_pose_orientation[0]
         poseStampedTable[0].pose.orientation.y = target_pose_orientation[1]
         poseStampedTable[0].pose.orientation.z = target_pose_orientation[2]
         poseStampedTable[0].pose.orientation.w = target_pose_orientation[3]
-        
+
         poseStampedHotel = [PoseStamped()]
         # 호텔 호실
         target_pose_position = rospy.get_param("hotel_room/position")
         target_pose_orientation = rospy.get_param("hotel_room/orientation")
-        
+
         poseStampedHotel[0].header.frame_id = "map"
         poseStampedHotel[0].header.stamp = rospy.Time.now()
-        
+
         poseStampedHotel[0].pose.position.x = target_pose_position[0]
         poseStampedHotel[0].pose.position.y = target_pose_position[0]
         poseStampedHotel[0].pose.position.z = target_pose_position[0]
-        
+
         poseStampedHotel[0].pose.orientation.x = target_pose_orientation[0]
         poseStampedHotel[0].pose.orientation.y = target_pose_orientation[0]
         poseStampedHotel[0].pose.orientation.z = target_pose_orientation[0]
         poseStampedHotel[0].pose.orientation.w = target_pose_orientation[0]
-        
+
     def checkModule(self, module):
         module = rospy.wait_for_message("state", String, timeout=None)
         if module.data == "hotel":
             self._HOTEL_FLAG_VALUE = self.HOTEL_FLAG_VALUE.WAIT
-            rospy.loginfo("호텔 모듈이 장착되었습니다. 현재 상태 :" + self._HOTEL_FLAG_VALUE.value)
+            rospy.loginfo("호텔 모듈이 장착되었습니다. 현재 상태 :" +
+                          self._HOTEL_FLAG_VALUE.value)
         elif module.data == "serving":
             self._SERVE_FLAG_VALUE = self.SERVE_FLAG_VALUE.WAIT
-            rospy.loginfo("서빙 모듈이 장착되었습니다. 현재 상태 :" + self._SERVE_FLAG_VALUE.value)
+            rospy.loginfo("서빙 모듈이 장착되었습니다. 현재 상태 :" +
+                          self._SERVE_FLAG_VALUE.value)
         else:
             rospy.logwarn("잘못된 데이터 입력")
-            
-        
-        
+
     def firebase(self, firebase):
-        if firebase.data == "테이블 1번":
-            rospy.loginfo("1번 테이블로 이동합니다.")
-            self.pubPoseStamped.publish(poseStampedTable[0])
-            self._SERVE_FLAG_VALUE = self.SERVE_FLAG_VALUE.MOVING
-            rospy.loginfo("서빙 진행 상황:" + self._SERVE_FLAG_VALUE.value)
-            
-        elif firebase.data == "1번 회수":
-            rospy.loginfo("1번 테이블로 이동합니다.")
-            self.pubPoseStamped.publish(poseStampedTable[0])
-            self._SERVE_FLAG_VALUE = self.SERVE_FLAG_VALUE.RETRIEVAL
-            rospy.loginfo("서빙 진행 상황:" + self._SERVE_FLAG_VALUE.value)
-            
-        elif firebase.data == "서빙 복귀":
-            rospy.longinfo("원래 위치로 복귀합니다.")
-            self.pubPoseStamped.publish(poseStampedHome[0])
-            self._SERVE_FLAG_VALUE = self.SERVE_FLAG_VALUE.RETURN
-            rospy.loginfo("서빙 진행 상황:" + self._SERVE_FLAG_VALUE.value)
-            
-        elif firebase.data == "101호":
-            rospy.loginfo("해당 호실로 이동합니다.")
-            self.pubPoseStamped.publish(poseStampedHotel[0])
-            self._HOTEL_FLAG_VALUE = self.HOTEL_FLAG_VALUE.MOVING
-            rospy.loginfo("호텔 진행 상황:" + self._HOTEL_FLAG_VALUE.value)
-            
-        elif firebase.data == "호텔 복귀":
-            rospy.loginfo("원래 위치로 복귀합니다.")
-            self.pubPoseStamped.publish(poseStampedHome[1])
-            self._HOTEL_FLAG_VALUE = self.HOTEL_FLAG_VALUE.RETURN
-            rospy.loginfo("호텔 진행 상황:" + self._HOTEL_FLAG_VALUE.value)
-            
+        if self._SERVE_FLAG_VALUE == "원위치" or self._HOTEL_FLAG_VALUE == "원위치":
+            # SERVE
+            if firebase.data == "테이블 1번":
+                rospy.loginfo("1번 테이블로 이동합니다.")
+                self.pubPoseStamped.publish(poseStampedTable[0])
+                self._SERVE_FLAG_VALUE = self.SERVE_FLAG_VALUE.MOVING
+                rospy.loginfo("서빙 진행 상황:" + self._SERVE_FLAG_VALUE.value)
+
+            elif firebase.data == "1번 회수":
+                rospy.loginfo("[회수] 1번 테이블로 이동합니다.")
+                self.pubPoseStamped.publish(poseStampedTable[0])
+                self._SERVE_FLAG_VALUE = self.SERVE_FLAG_VALUE.RETRIEVAL
+                rospy.loginfo("서빙 진행 상황:" + self._SERVE_FLAG_VALUE.value)
+
+            elif firebase.data == "서빙 복귀":
+                rospy.longinfo("원래 위치로 복귀합니다.")
+                self.pubPoseStamped.publish(poseStampedHome[0])
+                self._SERVE_FLAG_VALUE = self.SERVE_FLAG_VALUE.RETURN
+                rospy.loginfo("서빙 진행 상황:" + self._SERVE_FLAG_VALUE.value)
+
+            # HOTEL
+            elif firebase.data == "101호":
+                rospy.loginfo("해당 호실로 이동합니다.")
+                self.pubPoseStamped.publish(poseStampedHotel[0])
+                self._HOTEL_FLAG_VALUE = self.HOTEL_FLAG_VALUE.MOVING
+                rospy.loginfo("호텔 진행 상황:" + self._HOTEL_FLAG_VALUE.value)
+                # 로봇 현재 상태 전송
+                self.pubFirebase.publish("")
+
+            elif firebase.data == "호텔 복귀":
+                rospy.loginfo("원래 위치로 복귀합니다.")
+                self.pubPoseStamped.publish(poseStampedHome[1])
+                self._HOTEL_FLAG_VALUE = self.HOTEL_FLAG_VALUE.RETURN
+                rospy.loginfo("호텔 진행 상황:" + self._HOTEL_FLAG_VALUE.value)
+                # 로봇 현재 상태 전송
+                self.pubFirebase.publish("")
+
+            else:
+                pass
         else:
-            rospy.logwarn("잘못된 데이터 입력")
-        
+            rospy.logwarn("현재 원위치가 아닙니다. 작동하지 않습니다.")
+
     def checkArrival(self, arrival):
         if arrival.data == 3:
+            # HOTEL
             if self._HOTEL_FLAG_VALUE.value == "이동중":
-                rospy.loginfo("호실에 도착했습니다.")
-                self.pubHotel.publish("ros")
-                self.pubFirebase.publish("도착")
                 self._HOTEL_FLAG_VALUE = self.HOTEL_FLAG_VALUE.ARR
-                rospy.loginfo("호텔 진행 상황:" + self._HOTEL_FLAG_VALUE.value)
-                
-        
-        
-        
-        
-        
-        
-        
+                self.pubFirebase.publish("")  # 로봇 현재 상태 전송
+
+            if self._HOTEL_FLAG_VALUE.value == "복귀중":
+                self._HOTEL_FLAG_VALUE = self.HOTEL_FLAG_VALUE.HOME
+                self.pubFirebase.publish("")  # 로봇 현재 상태 전송
+
+            # SERVE
+            if self._SERVE_FLAG_VALUE.value == "이동중":
+                self._SERVE_FLAG_VALUE = self.SERVE_FLAG_VALUE.ARR
+
+            if self._SERVE_FLAG_VALUE.value == "회수중":
+                self._SERVE_FLAG_VALUE = self.SERVE_FLAG_VALUE.RETRIEVAL_ARR
+
+            if self._SERVE_FLAG_VALUE.value == "복귀중":
+                self._SERVE_FLAG_VALUE = self.SERVE_FLAG_VALUE.HOME
+
+    def pubPose(self):
+        # HOTEL
+        if self._HOTEL_FLAG_VALUE.value == "도착":
+            rospy.loginfo("호실에 도착했습니다.")
+            self.pubHotel.publish("ros")
+            self.pubFirebase.publish("QR")
+            rospy.loginfo("호텔 진행 상황:" + self._HOTEL_FLAG_VALUE.value)
+
+        if self._HOTEL_FLAG_VALUE.value == "원위치":
+            rospy.loginfo("원위치로 복귀했습니다.")
+            self.pubFirebase.publish("")
+            rospy.loginfo("호텔 진행 상황:" + self._HOTEL_FLAG_VALUE.value)
+
+        # SERVE
+        if self._SERVE_FLAG_VALUE.value == "도착":
+            rospy.loginfo("[서빙] 테이블에 도착했습니다.")
+            self.pubUltra.publish("leftFront")
+            rospy.loginfo("서빙 진행 상황:" + self._SERVE_FLAG_VALUE.value)
+
+        if self._SERVE_FLAG_VALUE.value == "회수 도착":
+            rospy.loginfo("[회수] 테이블에 도착했습니다.")
+            self.pubUltra.publish("leftFront")
+            rospy.loginfo("서빙 진행 상황:" + self._SERVE_FLAG_VALUE.value)
+
+        if self._SERVE_FLAG_VALUE.value == "원위치":
+            rospy.loginfo("원위치로 복귀했습니다.")
+            rospy.loginfo("서빙 진행 상황:" + self._SERVE_FLAG_VALUE.value)
+
+    def checkUltra(self, ultra):
+        if ultra.data == "end":
+            if self._SERVE_FLAG_VALUE == "도착":
+                rospy.loginfo("테이블 접근 완료. 쟁반 투입")
+                self.pubPlate.publish("forward")
+            elif self._SERVE_FLAG_VALUE == "회수 도착":
+                rospy.loginfo("테이블 접근 완료. 쟁반 회수")
+                self.pubPlate.publish("backward")
+            elif self._SERVE_FLAG_VALUE == "복귀중":
+                rospy.loginfo("회수 완료. 원위치로 복귀합니다.")
+                self.pubPoseStamped.publish(poseStampedHome[0])
+            else:
+                pass
+        else:
+            pass
+
+    def checkPlate(self, plate):
+        if plate.data == "end":
+            self._SERVE_FLAG_VALUE = self.SERVE_FLAG_VALUE.RETURN
+            self.pubUltra.publish("backleft")
+        else:
+            pass
+
+
 if __name__ == "__main__":
     rospy.init_node("service")
-    
+    rospy.loginfo("Service on")
+
+    l = Service()
+
     try:
         rospy.spin()
     except KeyboardInterrupt:
