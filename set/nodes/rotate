@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+# -*- encoding: utf-8 -*-
 
 import time
 import rospy
@@ -9,133 +10,139 @@ from sensor_msgs.msg import Imu
 from geometry_msgs.msg import Twist
 from tf.transformations import euler_from_quaternion
 
-# Ultrasensor pin number
+# 초음파 센서 핀 번호
 Trig = 21
 Echo = 19
 
-# Jetson nano GPIO settings
+# 젯슨나노 GPIO 설정
 GPIO.setmode(GPIO.BOARD)
 GPIO.setwarnings(False)
 GPIO.setup(Trig, GPIO.OUT)
 GPIO.setup(Echo, GPIO.IN)
 
+
 class RotateRobot:
     def __init__(self):
-        rospy.init_node('rotate_move')
         self.current_yaw = None
         self.target_yaw = None
         self.rotation_speed = 0.7
-        self.cmd_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
-        
+        self.cmd_vel_pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
+        self.ultra_pub = rospy.Publisher("ultra", String, queue_size=1)
+
         rospy.Subscriber('/imu/data', Imu, self.imu_callback)
         rospy.Subscriber('/ultra', String, self.ultra_callback)
-        
+
         self.rate = rospy.Rate(10)
 
-    # Save current yaw
     def imu_callback(self, msg):
-        # Get current yaw from IMU message
         orientation = msg.orientation
-        quaternion = [orientation.x, orientation.y, orientation.z, orientation.w]
+        quaternion = [orientation.x, orientation.y,
+                      orientation.z, orientation.w]
         roll, pitch, yaw = euler_from_quaternion(quaternion)
         self.current_yaw = yaw
 
-    # Rotate robot
     def rotate(self, rotation):
         if rotation == "l":
-            # Set the target yaw angle direction
-            self.target_yaw = self.current_yaw + 1.57 # 90 degrees in radians
+            # 목표 yaw 각도 설정
+            self.target_yaw = self.current_yaw + 1.57  # 90도 = 1.57rad
         elif rotation == "r":
-            # Set the target yaw angle direction
-            self.target_yaw = self.current_yaw - 1.57 # 90 degrees in radians
-            
-        # Rotate the robot until the target yaw angle is reached
+            # 목표 yaw 각도 설정
+            self.target_yaw = self.current_yaw - 1.57  # 90도 = 1.57rad
+
+        # 목표 yaw 각도 될 때까지 회전
         while abs(self.target_yaw - self.current_yaw) > 0.1:
             print(abs(self.target_yaw - self.current_yaw))
-            # Publish the rotation speed
             cmd_vel_msg = Twist()
             if self.target_yaw > self.current_yaw:
                 cmd_vel_msg.angular.z = self.rotation_speed
-                
+
             elif self.target_yaw < self.current_yaw:
                 cmd_vel_msg.angular.z = -self.rotation_speed
 
-            # Publish the rotation command
             self.cmd_vel_pub.publish(cmd_vel_msg)
             self.rate.sleep()
-        # Stop the robot
+        # 회전이 끝나면 로봇 정지
         cmd_vel_msg = Twist()
         cmd_vel_msg.angular.z = 0.0
         self.cmd_vel_pub.publish(cmd_vel_msg)
-    # UltraSensor 
+
     def ultra(self, direction):
         while not rospy.is_shutdown():
             GPIO.output(Trig, False)
             time.sleep(0.1)
             GPIO.output(Trig, True)
-            time.sleep(0.00001) # 10us
-            GPIO.output(Trig,False)
-            
+            time.sleep(0.00001)  # 10us
+            GPIO.output(Trig, False)
+
             while GPIO.input(Echo) == 0:
                 start = time.time()
-                
+
             while GPIO.input(Echo) == 1:
                 end = time.time()
-            # Calculate distance
+
             duration = end - start
             distance = duration * 17000
             distance = round(distance, 2)
-            
+
             print("distance: %fcm\r" % distance)
-            
+
             cmd_vel_msg = Twist()
-            
+
             if direction == "f":
                 cmd_vel_msg.linear.x = 0.1
-                
-                # Move forward until 5 centimeter
+
+                # 5cm까지 전진
                 if (distance > 5):
                     self.cmd_vel_pub.publish(cmd_vel_msg)
-                    
-                else :
+
+                else:
                     cmd_vel_msg.linear.x = 0.0
                     self.cmd_vel_pub.publish(cmd_vel_msg)
                     break
-            else :
+            else:
                 cmd_vel_msg.linear.x = -0.1
-                
-                # Move backword until 15 centimeter
+
+                # 15cm까지 후진
                 if (distance < 15):
-                    self.cmd_vel_pub.publish(cmd_vel_msg) 
-                    
-                else :
+                    self.cmd_vel_pub.publish(cmd_vel_msg)
+
+                else:
                     cmd_vel_msg.linear.x = 0.0
                     self.cmd_vel_pub.publish(cmd_vel_msg)
                     break
-                
+
     def ultra_callback(self, msg):
-        # Turn left and move forward
+        # 좌회전 후 전진
         if msg.data == "leftFront":
             self.rotate("l")
             self.ultra("f")
-        # Turn right and move forward
-        if msg.data == "rightFront":
+            self.ultra_pub.publish("end")
+        # 우회전 후 전진
+        elif msg.data == "rightFront":
             self.rotate("r")
             self.ultra("f")
-        # Move backward and turn left
-        if msg.data == "backLeft":
+            self.ultra_pub.publish("end")
+        # 후진 후 좌회전
+        elif msg.data == "backLeft":
             self.ultra("b")
             self.rotate("r")
-        # Move backward and turn right
-        if msg.data == "backRight":
+            self.ultra_pub.publish("end")
+        # 후진 후 우회전
+        elif msg.data == "backRight":
             self.ultra("b")
             self.rotate("r")
-            
+            self.ultra_pub.publish("end")
+        else:
+            pass
+
 
 if __name__ == '__main__':
-    
-    l = RotateRobot()
-    
+    rospy.init_node('rotate_move')
     rospy.loginfo("Ultra on")
-    
-    rospy.spin()
+
+    l = RotateRobot()
+
+    try:
+        rospy.spin()
+    except KeyboardInterrupt:
+        print("Shutting down")
