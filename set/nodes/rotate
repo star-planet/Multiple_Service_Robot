@@ -50,8 +50,8 @@ class RotateRobot:
             self.target_yaw = self.current_yaw - 1.57  # 90도 = 1.57rad
 
         # 목표 yaw 각도 될 때까지 회전
-        while abs(self.target_yaw - self.current_yaw) > 0.1:
-            print(abs(self.target_yaw - self.current_yaw))
+        while abs(self.target_yaw - self.current_yaw) >= 0.1:
+            rospy.loginfo("목표 도달까지의 yaw: %.2f" % abs(self.target_yaw - self.current_yaw))
             cmd_vel_msg = Twist()
             if self.target_yaw > self.current_yaw:
                 cmd_vel_msg.angular.z = self.rotation_speed
@@ -84,15 +84,15 @@ class RotateRobot:
             distance = duration * 17000
             distance = round(distance, 2)
 
-            print("distance: %fcm\r" % distance)
+            rospy.loginfo("전방 물체와의 거리: %fcm" % distance)
 
             cmd_vel_msg = Twist()
 
             if direction == "f":
                 cmd_vel_msg.linear.x = 0.1
 
-                # 5cm까지 전진
-                if (distance > 5):
+                # 15cm까지 전진
+                if (distance > 15):
                     self.cmd_vel_pub.publish(cmd_vel_msg)
 
                 else:
@@ -115,21 +115,25 @@ class RotateRobot:
         # 좌회전 후 전진
         if msg.data == "leftFront":
             self.rotate("l")
+            time.sleep(2)
             self.ultra("f")
             self.ultra_pub.publish("end")
         # 우회전 후 전진
         elif msg.data == "rightFront":
             self.rotate("r")
+            time.sleep(2)
             self.ultra("f")
             self.ultra_pub.publish("end")
         # 후진 후 좌회전
         elif msg.data == "backLeft":
             self.ultra("b")
+            time.sleep(2)
             self.rotate("r")
             self.ultra_pub.publish("end")
         # 후진 후 우회전
         elif msg.data == "backRight":
             self.ultra("b")
+            time.sleep(2)
             self.rotate("r")
             self.ultra_pub.publish("end")
         else:
