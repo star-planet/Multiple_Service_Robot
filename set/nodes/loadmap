@@ -33,17 +33,17 @@ class MapLoader:
 
     def map_change_callback(self, msg):
         if msg.data == 1:
-            self.map_path = "/home/hyun/project3/src/DMU_3-1_Project/navigation/maps/fifth.yaml"
+            self.map_path = "/home/hyun/project3/src/DMU_3-1_Project/navigation/maps/mca.yaml"
             self.load_map()
             rospy.sleep(0.5)
-            pose1 = self.set_initial_pose(1.76293301582,-0.261510968208,0.999987949153, 0.00490933273955)
+            pose1 = self.set_initial_pose(1.81991589069, 0.809644460678,-0.851503633761, 0.524348702383)
             self.map_pub.publish(pose1)
             rospy.loginfo("Setting initial pose to: {}".format(pose1))
         elif msg.data == 2:
-            self.map_path = "/home/hyun/project3/src/DMU_3-1_Project/navigation/maps/fifth2.yaml"
+            self.map_path = "/home/hyun/project3/src/DMU_3-1_Project/navigation/maps/fifth.yaml"
             self.load_map()
             rospy.sleep(0.5)
-            pose2 = self.set_initial_pose(2.18577885628, -0.0832581520081, -0.00902068301482, 0.999959312811)
+            pose2 = self.set_initial_pose(-3.61526370049, -0.675316214561, 0.458776213223, 0.888551847773)
             self.map_pub.publish(pose2)
             rospy.loginfo("Setting initial pose to: {}".format(pose2))
         else:
