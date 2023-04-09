@@ -2,4 +2,4 @@
 
 ROS version : Melodic
 
-   Name     : Module Robot
+   Name     : Module Service Robot
