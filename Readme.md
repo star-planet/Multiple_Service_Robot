@@ -1,5 +1,37 @@
-# MCA project3
+# MCA project [3-1]    
 
-ROS version : Melodic
+## 작품 동기
 
-   Name     : Module Service Robot
+각 기능을 가진 서비스 로봇을 하나로 줄여보자 - 모듈형 서비스 로봇
+
+### 컨셉
+
+하나의 하단부
+
+둘 이상의 상단부
+
+상단부를 장착 후 모드 변경을 통해 로봇 조작
+
+### 프로그램
+
+ROS, C++, Kotlin, VueJs
+
+보드
+
+Jetson Nano 4gb, RaspberryPi 4, OpenCR 1.0
+
+### 운영체제
+
+Ubuntu 18.04, ROS Melodic
+
+### 장소
+
+호텔, 식당
+
+### 기능
+
+객실 내 QR을 통한 서비스 제공(웹으로 연결)
+
+호텔 어메니티 배달 서비스 제공
+
+식당에서 서빙로봇 기능 제공
