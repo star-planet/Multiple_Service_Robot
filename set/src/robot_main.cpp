@@ -14,11 +14,9 @@
 
 using namespace std;
 
-class Service
-{
+class Service {
 public:
-Service()
-{
+Service() {
     fnInitParam();
 
     pubPoseStamped = nh.advertise<geometry_msgs::PoseStamped>("/move_base_simple/goal", 1);
@@ -38,8 +36,7 @@ Service()
     sub_module_status = nh.subscribe("/module", 1, &Service::CheckModule, this);
 }
 
-enum hotelState
-{
+enum hotelState {
     H_WAIT,
     H_MOVING_EV,
     H_FRONT_EV,
@@ -53,7 +50,7 @@ enum hotelState
     H_HOME,
 };
 
-enum serveState{
+enum serveState {
     S_WAIT,
     S_MOVING,
     S_ARR,
@@ -63,8 +60,7 @@ enum serveState{
     S_HOME
 };
 
-void fnInitParam()
-{
+void fnInitParam() {
     // 서빙 Home //
     nh.getParam("serve_home/position", target_pose_position);
     nh.getParam("serve_home/orientation", target_pose_orientation);
@@ -194,73 +190,50 @@ void fnInitParam()
     poseStamped[7].pose.orientation.w = target_pose_orientation[3];
 }
 
-void CheckModule(const std_msgs::String module)
-{
-    if (strcmp(module.data.c_str(), "hotel") == 0)
-    {
+void CheckModule(const std_msgs::String module) {
+    if (strcmp(module.data.c_str(), "hotel") == 0) {
+        hotel = true;
         _HOTEL_FLAG = H_WAIT;
-        ROS_INFO("호텔 모듈이 장착되었습니다. 현재 상태 : %d", _HOTEL_FLAG);
+        ROS_INFO("Hotel Module Activated.");
+        sleep(0.5);
+        serve = false;
     }
 
-    else if (strcmp(module.data.c_str(), "serving") == 0)
-    {
+    else if (strcmp(module.data.c_str(), "serving") == 0) {
+        serve = true;
         _SERVE_FLAG = S_WAIT;
-        ROS_INFO("서빙 모듈이 장착되었습니다. 현재 상태 : %d", _SERVE_FLAG);
+        ROS_INFO("Serving Module Activated.");
+        sleep(0.5);
+        hotel = false;
     }
 }
 
-void CheckFirebase(const std_msgs::String firebase)
-{
-    if (_HOTEL_FLAG == H_WAIT || _SERVE_FLAG == S_WAIT)
-    {
-        // SERVE //
-        if (strcmp(firebase.data.c_str(), "테이블 1번") == 0)
-        {
-            ROS_INFO("[서빙] 1번 테이블로 이동합니다.");
+void CheckFirebase(const std_msgs::String firebase) {
+    if (serve && _SERVE_FLAG == S_WAIT) {
+        if (strcmp(firebase.data.c_str(), "서빙") == 0) {
+            ROS_INFO("Move to Table 1.");
             pubPoseStamped.publish(poseStamped[2]);
             _SERVE_FLAG = S_MOVING;
-            ROS_INFO("서빙 진행 상황: %d", _SERVE_FLAG);
         }
 
-        else if (strcmp(firebase.data.c_str(), "테이블 1번 회수") == 0)
-        {
-            ROS_INFO("[회수] 1번 테이블로 이동합니다.");
+        else if (strcmp(firebase.data.c_str(), "회수") == 0) {
+            ROS_INFO("Move to Table 1 for retrieval.");
             pubPoseStamped.publish(poseStamped[2]);
             _SERVE_FLAG = S_RETRIEVAL;
-            ROS_INFO("서빙 진행 상황: %d", _SERVE_FLAG);
         }
+    }
 
-        else if (strcmp(firebase.data.c_str(), "서빙 복귀") == 0)
-        {
-            ROS_INFO("[복귀] 원래 위치로 복귀합니다.");
-            pubPoseStamped.publish(poseStamped[0]);
-            _SERVE_FLAG = S_RETURN;
-            ROS_INFO("서빙 진행 상황: %d", _SERVE_FLAG);
-        }
-
-        else if (strcmp(firebase.data.c_str(), "테이블 1번 회수 복귀") == 0)
-        {
-            ROS_INFO("[회수] 원래 위치로 복귀합니다.");
-            pubPoseStamped.publish(poseStamped[0]);
-            _SERVE_FLAG = S_RETURN;
-            ROS_INFO("서빙 진행 상황: %d", _SERVE_FLAG);
-        }
-
-        // HOTEL //
-        else if (strcmp(firebase.data.c_str(), "101호") == 0)
-        {
-            ROS_INFO("[이동] 해당 호실로 이동합니다.");
+    if (hotel && _HOTEL_FLAG == H_WAIT) {
+        if (strcmp(firebase.data.c_str(), "101호") == 0) {
+            ROS_INFO("Move to 101.");
             pubPoseStamped.publish(poseStamped[4]);
             _HOTEL_FLAG = H_MOVING_EV;
-            ROS_INFO("호텔 진행 상황: %d", _HOTEL_FLAG);
         }
 
-        else if (strcmp(firebase.data.c_str(), "호텔 복귀") == 0)
-        {
-            ROS_INFO("[복귀] 원래 위치로 복귀합니다.");
+        else if (strcmp(firebase.data.c_str(), "복귀") == 0) {
+            ROS_INFO("Return.");
             pubPoseStamped.publish(poseStamped[6]);
             _HOTEL_FLAG = H_RETURN;
-            ROS_INFO("호텔 진행 상황: %d", _HOTEL_FLAG);
         }
     }
 }
@@ -269,179 +242,193 @@ void CheckArrival(const move_base_msgs::MoveBaseActionResult arrival)
 {
     if (arrival.status.status == 3)
     {
-        // HOTEL //
-        if (_HOTEL_FLAG == H_MOVING_EV)
-        {
-            _HOTEL_FLAG = H_FRONT_EV;
-            ROS_INFO("엘레베이터 앞에 도착하였습니다.");
-            ROS_INFO("호텔 진행 상황: %d", _HOTEL_FLAG);
-            stringstream op;
-            op << "open1";
-            ev1.data = op.str();
-            pubElevator1.publish(ev1);
+        if(hotel) {
+            if (_HOTEL_FLAG == H_MOVING_EV) {
+                _HOTEL_FLAG = H_FRONT_EV;
+                ROS_INFO("Front of EV");
+                sleep(2);
+                stringstream op;
+                op << "open1";
+                ev1.data = op.str();
+                pubElevator1.publish(ev1);
+            }
+
+            else if (_HOTEL_FLAG == H_INSIDE_EV) {
+                ROS_INFO("Inside of EV");
+                sleep(2);
+                stringstream cl;
+                cl << "close1";
+                ev1.data = cl.str();
+                pubElevator1.publish(ev1);
+            }
+
+            else if (_HOTEL_FLAG == H_MOVING_ROOM) {
+                _HOTEL_FLAG = H_ARR;
+                ROS_INFO("Room Arrival");
+                sleep(2);
+                stringstream q;
+                q << "QR";
+                qr.data = q.str();
+                pubFirebase.publish(qr);
+                stringstream ho;
+                ho << "ros";
+                hotel.data = ho.str();
+                pubHotel.publish(hotel);
+            }
+
+            else if (_HOTEL_FLAG == H_RETURN) {
+                _HOTEL_FLAG = H_RETURN_FRONT_EV;
+                ROS_INFO("Front of EV, Return");
+                sleep(2);
+                stringstream op;
+                op << "open1";
+                ev2.data = op.str();
+                pubElevator2.publish(ev2);
+            }
+
+            else if (_HOTEL_FLAG == H_RETURN_INSIDE_EV) {
+                ROS_INFO("Inside of EV, Return");
+                sleep(2);
+                stringstream cl;
+                cl << "close1";
+                ev2.data = cl.str();
+                pubElevator2.publish(ev2);
+            }
+
+            else if (_HOTEL_FLAG == H_HOME) {
+                ROS_INFO("Home");
+                sleep(2);
+                _HOTEL_FLAG = H_WAIT;
+            }
         }
 
-        else if (_HOTEL_FLAG == H_INSIDE_EV)
-        {
-            ROS_INFO("엘레베이터 층간 이동 중입니다.");
-            ROS_INFO("호텔 진행 상황: %d", _HOTEL_FLAG);
-            stringstream cl;
-            cl << "close1";
-            ev1.data = cl.str();
-            pubElevator1.publish(ev1);
-        }
+        if(serve) {
+            if (_SERVE_FLAG == S_MOVING) {
+                _SERVE_FLAG = S_ARR;
+                ROS_INFO("arrive to table");
+                sleep(2);
+                stringstream ul;
+                ul << "leftFront";
+                ultra.data = ul.str();
+                pubUltra.publish(ultra);
+            }
 
-        else if (_HOTEL_FLAG == H_MOVING_ROOM)
-        {
-            ROS_INFO("호실 앞에 도착했습니다.");
-            ROS_INFO("호텔 진행 상황: %d", _HOTEL_FLAG);
-            stringstream q;
-            q << "QR";
-            qr.data = q.str();
-            pubFirebase.publish(qr);
-            stringstream ho;
-            ho << "ros";
-            hotel.data = ho.str();
-            pubHotel.publish(hotel);
-        }
+            else if (_SERVE_FLAG == S_RETRIEVAL) {
+                _SERVE_FLAG = S_RETRIEVAL_ARR;
+                ROS_INFO("arrive to table for retrieval");
+                sleep(2);
+                stringstream ul;
+                ul << "leftFront";
+                ultra.data = ul.str();
+                pubUltra.publish(ultra);
+            }
 
-        else if (_HOTEL_FLAG == H_RETURN)
-        {
-            _HOTEL_FLAG = H_RETURN_FRONT_EV;
-            ROS_INFO("엘레베이터 앞에 도착했습니다.");
-            ROS_INFO("호텔 진행 상황: %d", _HOTEL_FLAG);
-            stringstream op;
-            op << "open1";
-            ev2.data = op.str();
-            pubElevator2.publish(ev2);
-        }
-
-        else if (_HOTEL_FLAG == H_RETURN_INSIDE_EV)
-        {
-            ROS_INFO("엘레베이터 층간 이동 중입니다.");
-            ROS_INFO("호텔 진행 상황: %d", _HOTEL_FLAG);
-            stringstream cl;
-            cl << "close1";
-            ev2.data = cl.str();
-            pubElevator2.publish(ev2);
-        }
-
-        // SERVE //
-        else if (_SERVE_FLAG == S_MOVING)
-        {
-            _SERVE_FLAG = S_ARR;
-            ROS_INFO("[서빙] 테이블에 도착했습니다");
-            ROS_INFO("서빙 진행 상황: %d", _SERVE_FLAG);
-            stringstream ul;
-            ul << "leftFront";
-            ultra.data = ul.str();
-            pubUltra.publish(ultra);
-        }
-
-        else if (_SERVE_FLAG == S_RETRIEVAL)
-        {
-            _SERVE_FLAG = S_RETRIEVAL_ARR;
-            ROS_INFO("[회수] 테이블에 도착했습니다");
-            ROS_INFO("서빙 진행 상황: %d", _SERVE_FLAG);
-            stringstream ul;
-            ul << "leftFront";
-            ultra.data = ul.str();
-            pubUltra.publish(ultra);
-        }
-
-        else if (_SERVE_FLAG == S_RETURN)
-        {
-            _SERVE_FLAG = S_HOME;
-            ROS_INFO("원위치로 복귀했습니다.");
-            ROS_INFO("서빙 진행 상황: %d", _SERVE_FLAG);
+            else if (_SERVE_FLAG == S_RETURN) {
+                _SERVE_FLAG = S_HOME;
+                ROS_INFO("Home");
+                sleep(2);
+                _SERVE_FLAG = S_WAIT;
+            }
         }
     }
 }
 
 void CheckUltra(const std_msgs::String ultra)
 {
-    if (strcmp(ultra.data.c_str(), "end") == 0)
-    {
-        if (_SERVE_FLAG == S_ARR)
-        {
-            ROS_INFO("테이블 접근 완료. 쟁반 투입");
-            stringstream g;
-            g << "forward";
-            go.data = g.str();
-            //pubPlate.publish(go);
-        }
+    if (serve) {
+        if (strcmp(ultra.data.c_str(), "end") == 0) {
+            if (_SERVE_FLAG == S_ARR) {
+                ROS_INFO("Finished, Plate Forward");
+                sleep(2);
+                stringstream g;
+                g << "forward";
+                go.data = g.str();
+                pubPlate.publish(go);
+            }
 
-        else if (_SERVE_FLAG == S_RETRIEVAL_ARR)
-        {
-            ROS_INFO("테이블 접근 완료. 쟁반 회수");
-            stringstream b;
-            b << "backward";
-            back.data = b.str();
-            pubPlate.publish(back);
-        }
+            else if (_SERVE_FLAG == S_RETRIEVAL_ARR) {
+                ROS_INFO("Finished, Plate Backward");
+                sleep(2);
+                stringstream b;
+                b << "backward";
+                back.data = b.str();
+                pubPlate.publish(back);
+            }
 
-        else if (_SERVE_FLAG == S_RETURN)
-        {
-            ROS_INFO("회수 완료. 원위치로 복귀합니다.");
-            pubPoseStamped.publish(poseStamped[0]);
+            else if (_SERVE_FLAG == S_RETURN) {
+                ROS_INFO("Finished, Home");
+                sleep(2);
+                pubPoseStamped.publish(poseStamped[0]);
+            }
         }
     }
+
 }
 
 void CheckPlate(const std_msgs::String plate)
 {
-    if (strcmp(plate.data.c_str(), "end") == 0)
-    {
-        _SERVE_FLAG = S_RETURN;
-        stringstream b;
-        b << "backward";
-        ultra.data = b.str();
-        pubUltra.publish(ultra);
+    if (serve) {
+        if (strcmp(plate.data.c_str(), "end") == 0) {
+            if (_SERVE_FLAG == S_ARR || _SERVE_FLAG == S_RETRIEVAL_ARR){
+                _SERVE_FLAG = S_RETURN;
+                ROS_INFO("Plate End");
+                sleep(2);
+                stringstream b;
+                b << "backLeft";
+                ultra.data = b.str();
+                pubUltra.publish(ultra);
+            }
+        }
     }
 }
 
 // // 1층 -> 2층 //
 void CheckElevator1(const std_msgs::String elevator1)
 {
-    if (strcmp(elevator1.data.c_str(), "First_Open") == 0)
-    {
-        ROS_INFO("1층 문이 열렸습니다.");
-        pubPoseStamped.publish(poseStamped[5]);
-        _HOTEL_FLAG = H_INSIDE_EV;
-    }
+    if (hotel){
+        if (strcmp(elevator1.data.c_str(), "First_Open") == 0) {
+            ROS_INFO("1 door open");
+            sleep(2);
+            pubPoseStamped.publish(poseStamped[5]);
+            _HOTEL_FLAG = H_INSIDE_EV;
+        }
 
-    else if (strcmp(elevator1.data.c_str(), "Second_Open") == 0)
-    {
-        ROS_INFO("2층 문이 열렸습니다.");
-        pubPoseStamped.publish(poseStamped[3]);
-        _HOTEL_FLAG = H_MOVING_ROOM;
-        sleep(3);
-        stringstream cl;
-        cl << "close2";
-        ev1.data = cl.str();
-        pubElevator1.publish(ev1);
+        else if (strcmp(elevator1.data.c_str(), "Second_Open") == 0) {
+            ROS_INFO("2 door open");
+            sleep(2);
+            pubPoseStamped.publish(poseStamped[3]);
+            _HOTEL_FLAG = H_MOVING_ROOM;
+            sleep(3);
+            stringstream cl;
+            cl << "close2";
+            ev1.data = cl.str();
+            pubElevator1.publish(ev1);
+        }
     }
 }
 
 // 2층 -> 1층 //
 void CheckElevator2(const std_msgs::String elevator2)
 {
-    if (strcmp(elevator2.data.c_str(), "First_Open") == 0)
-    {
-        ROS_INFO("2층 문이 열렸습니다.");
-        pubPoseStamped.publish(poseStamped[7]);
-        _HOTEL_FLAG = H_RETURN_INSIDE_EV;
-    }
+    if (hotel) {
+        if (strcmp(elevator2.data.c_str(), "First_Open") == 0) {
+            ROS_INFO("2 door open, Return");
+            sleep(2);
+            pubPoseStamped.publish(poseStamped[7]);
+            _HOTEL_FLAG = H_RETURN_INSIDE_EV;
+        }
 
-    else if (strcmp(elevator2.data.c_str(), "Second_Open") == 0)
-    {
-        ROS_INFO("1층 문이 열렸습니다.");
-        pubPoseStamped.publish(poseStamped[1]);
-        sleep(3);
-        stringstream cl;
-        cl << "close2";
-        ev2.data = cl.str();
-        pubElevator2.publish(ev2);
+        else if (strcmp(elevator2.data.c_str(), "Second_Open") == 0) {
+            ROS_INFO("1 door open, Return");
+            sleep(2);
+            pubPoseStamped.publish(poseStamped[1]);
+            _HOTEL_FLAG = H_HOME;
+            sleep(3);
+            stringstream cl;
+            cl << "close2";
+            ev2.data = cl.str();
+            pubElevator2.publish(ev2);
+        }
     }
 }
 
@@ -469,14 +456,15 @@ geometry_msgs::PoseStamped poseStamped[8];
 vector<double> target_pose_position;
 vector<double> target_pose_orientation;
 
-int _HOTEL_FLAG;
-int _SERVE_FLAG  ;
+int _HOTEL_FLAG, _SERVE_FLAG;
 
 std_msgs::String qr, ultra, go, back, ev1, ev2, hotel;
+
+bool hotel = false;
+bool serve = false;
 };
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
     ros::init(argc, argv, "Service");
 
     ROS_INFO("SYSTEM ON");
