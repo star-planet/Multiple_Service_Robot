@@ -1,0 +1,13 @@
+<launch>
+  <!-- Service -->
+  <node pkg="set" type="robot_main" name="robot_main" output="screen" >
+    <rosparam file="$(find set)/param/target_pose.yaml" command="load" />
+  </node>
+
+  <!-- Load map -->
+  <node pkg="set" type="loadmap" name="loadmap" output="screen" />
+
+  <!-- Firebase -->
+  <node pkg="set" type="firebase" name="firebase" output="screen" />
+
+</launch>
