@@ -1,0 +1,130 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+
+# ROS
+import rospy
+from std_msgs.msg import String
+
+# Firebase
+import firebase_admin
+from firebase_admin import credentials
+from firebase_admin import db
+
+class Listener:
+    def __init__(self):
+        rospy.init_node('rosFirebase', anonymous=True)
+        rospy.Subscriber("ros_to_firebase", String, callback=self.callback)
+        self.pub = rospy.Publisher("firebase_to_ros", String, queue_size=10)
+        
+        self.cred = credentials.Certificate('/home/hyun/project3/src/DMU_3-1_Project/set/nodes/mca_key.json') # Key Certification
+
+        firebase_admin.initialize_app(self.cred, {
+            'databaseURL': 'https://project1-6dfc7-default-rtdb.firebaseio.com/' # Database url
+        })
+        rospy.loginfo("[Firebase ON]")
+        self.talker()
+
+    #아두이도 혹은 라즈베리파이가 Firebase의 데이터를 업데이트시켜주는 코드
+
+    def callback(self, msg):
+        if msg.data == "Hotel":
+            data = {'NFC' : msg.data}
+            ref = db.reference('')
+            ref.update(data)
+            print("rfid.data: " + msg.data)
+            
+
+        if msg.data == "Serving":
+            data = {'NFC' : msg.data}
+            ref = db.reference('')
+            ref.update(data)
+            print("rfid.data: " + msg.data)
+            
+
+        if msg.data == "None":
+            data = {'NFC' : msg.data}
+            ref = db.reference('')
+            ref.update(data)
+            print("rfid.data: " + msg.data)
+            
+
+        if msg.data == "Success":
+            data = {'Start' : msg.data}
+            ref = db.reference('')
+            ref.update(data)
+            print("Robot_Start.data: " + msg.data)
+
+        if msg.data == "Fail":
+            data = {'Start' : msg.data}
+            ref = db.reference('')
+            ref.update(data)
+            print("Robot_Start.data: " + msg.data)
+
+
+        if msg.data == "Home_Success":
+            data = {'Start' : msg.data}
+            ref = db.reference('')
+            ref.update(data)
+            print("Robot_Start.data: " + msg.data)
+            
+        last_data = None
+        if msg.data == "Home_Fail" and msg.data != last_data:
+            data = {'Start' : msg.data}
+            ref = db.reference('')
+            ref.update(data)
+            print("Robot_Start.data: " + msg.data)
+            last_data = msg.data
+
+        if msg.data == "Close":
+            data = {'Module_Motor' : msg.data}
+            ref = db.reference('')
+            ref.update(data)
+            print("Module_Motor.data: " + msg.data)
+            
+        if msg.data == "QR":
+            data = {'QR': msg.data}
+            ref = db.reference('')
+            ref.update(data)
+            print("QR.data: " + msg.data)
+            
+    #Firebase의 데이터를 아두이노 혹은 라즈베리파이에 보내는 코드
+
+    def talker(self):
+        last_data = {}
+        while not rospy.is_shutdown():
+        
+            new_data = {}
+            new_data['First_Motor'] = db.reference('Hotel_Motor/Hotel_Motor1').get()
+            new_data['Second_Motor'] = db.reference('Hotel_Motor/Hotel_Motor2').get()
+            new_data['Third_Motor'] = db.reference('Hotel_Motor/Hotel_Motor3').get()
+            new_data['Start'] = db.reference('Start').get()
+            new_data['Module_Motor'] = db.reference('Module_Motor').get()
+
+            if new_data['First_Motor'] != last_data.get('First_Motor'):
+                print("Hotel_Motor1.data: " + new_data['First_Motor'])
+                self.pub.publish(new_data['First_Motor'])
+                last_data['First_Motor'] = new_data['First_Motor']
+
+            if new_data['Second_Motor'] != last_data.get('Second_Motor'):
+                print("Hotel_Motor2.data: " +new_data['Second_Motor'])
+                self.pub.publish(new_data['Second_Motor'])
+                last_data['Second_Motor'] = new_data['Second_Motor']
+
+            if new_data['Third_Motor'] != last_data.get('Third_Motor'):
+                print("Hotel_Motor3.data: " + new_data['Third_Motor'])
+                self.pub.publish(new_data['Third_Motor'])
+                last_data['Third_Motor'] = new_data['Third_Motor']
+
+            if new_data['Start'] != last_data.get('Start'):
+                print("Firebase_Start.data: " + new_data['Start'])
+                self.pub.publish(new_data['Start'])
+                last_data['Start'] = new_data['Start']
+
+            if new_data['Module_Motor'] != last_data.get('Module_Motor'):
+                print("Module_Motor.data: " + new_data['Module_Motor'])
+                self.pub.publish(new_data['Module_Motor'])
+                last_data['Module_Motor'] = new_data['Module_Motor']
+
+if __name__ == '__main__':
+    l = Listener()
+    rospy.spin()
