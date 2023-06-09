@@ -1,0 +1,32 @@
+<launch>
+  <!-- Arguments -->
+  <arg name="map_file" default="$(find navigation)/maps/serving.yaml"/>
+  <arg name="open_rviz" default="true"/>
+  <arg name="move_forward_only" default="true"/>
+
+  <!-- Remote robot -->
+  <include file="$(find bringup)/launch/remote.launch"/>
+
+  <!-- Run the EKF Localization node -->
+  <node pkg="robot_localization" type="ekf_localization_node" name="ekf_localization" clear_params="true">
+      <rosparam command="load" file="$(find localization)/config/ekf_localization.yaml"/>
+  </node>
+
+  <!-- AMCL -->
+  <include file="$(find navigation)/launch/amcl.launch"/>
+
+  <!-- Map server -->
+  <node pkg="map_server" name="map_server" type="map_server" args="$(arg map_file)"/>
+
+  <!-- Map auto clearing -->
+  <node pkg="navigation" name="auto_clear_map" type="clear_costmap_service" output="screen"/>
+
+  <!-- move_base -->
+  <include file="$(find navigation)/launch/move_base.launch"/>
+
+  <!-- rviz -->
+  <group if="$(arg open_rviz)"> 
+    <node pkg="rviz" type="rviz" name="rviz" required="true"
+          args="-d $(find navigation)/rviz/navigation.rviz"/>
+  </group>
+</launch>
